@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "discord-notion-bug-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-17",
+  "vars": {
+    "NOTION_BUG_NUMBER_PROPERTY": "Task",
+    "NOTION_TASK_PROPERTY": "Task",
+    "NOTION_TITLE_PROPERTY": "Task",
+    "NOTION_DESCRIPTION_PROPERTY": "Description",
+    "NOTION_TEAM_PROPERTY": "Team",
+    "NOTION_PRIORITY_PROPERTY": "Priority",
+    "NOTION_ASSIGNEE_PROPERTY": "Assignee",
+    "NOTION_DUE_DATE_PROPERTY": "Due Date",
+    "NOTION_SCOPE_PROPERTY": "Discipline",
+    "NOTION_SCOPE_VALUE": "QA",
+    "NOTION_SCOPE_TYPE": "multi_select",
+    "NOTION_STATUS_PROPERTY": "Status",
+    "NOTION_STATUS_TYPE": "status",
+    "NOTION_REVIEW_STATUS": "Ready for Review",
+    "NOTION_COMPLETE_STATUS": "Completed",
+    "SEARCH_MATCH_THRESHOLD": "0.56",
+    "SEARCH_CANDIDATE_LIMIT": "3",
+    "RANDOM_EXCLUDED_STATUSES": "Completed,Ready for Review,Cutting Room Floor,Done,Cancelled,Canceled,Duplicate,Won't fix,Wont fix",
+    "RANDOM_PRIORITY_ORDER": "Overdue,Critical,High,Medium,Low"
+  }
+}

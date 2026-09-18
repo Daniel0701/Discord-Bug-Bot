@@ -1,0 +1,6 @@
+DISCORD_APPLICATION_ID=replace-me
+DISCORD_PUBLIC_KEY=replace-me
+NOTION_TOKEN=replace-me
+NOTION_DATA_SOURCE_ID=replace-me
+ADVANCED_PERMS_ROLE_IDS=comma-separated-discord-role-ids
+ADVANCED_PERMS_USER_IDS=optional-comma-separated-discord-user-ids
