@@ -53,18 +53,18 @@ async function handleFind(interaction: DiscordInteraction, env: Env): Promise<st
       `Status: ${escapeDiscord(best.bug.status)} · Similarity: ${Math.round(best.score * 100)}%`,
       linkFor(best.bug) + reason,
       "",
-      "Please review the linked record before deciding whether to log a new bug."
+      "Please review the linked recording before logging a new bug."
     ].join("\n");
   }
 
   const lines = [
     "**No likely existing bug was found.**",
-    latest > 0 ? `The current highest number is BUG-${latest}; the next suggested number is **BUG-${latest + 1}**.` : "No numbered bugs were found; start with **BUG-1**."
+    latest > 0 ? `The current highest number is BUG-${latest}; the next suggested number is **BUG-${latest + 1}**.` : "Add some bugs to search for bugs."
   ];
   if (results.length) {
     lines.push("", "Closest results:", ...results.map(candidateLine));
   }
-  lines.push("", "Search is deterministic and may miss bugs described with very different wording, so check the closest results before logging.");
+  lines.push("", "The bot may have missed bugs described with very different wording, so do check the closest result.");
   return lines.join("\n");
 }
 
@@ -72,7 +72,7 @@ async function handleNext(env: Env): Promise<string> {
   const bugs = await listBugs(env);
   const latest = latestNumber(bugs);
   return latest > 0
-    ? `The current highest number is **BUG-${latest}**. The next suggested number is **BUG-${latest + 1}**.\n\nThis is advisory; re-run the command immediately before logging in case another bug was added.`
+    ? `The current highest number is **BUG-${latest}**. The next suggested number is **BUG-${latest + 1}**.\n\nTip: run this bug before logging a bug to know where to start!`
     : "No numbered bugs were found. The first suggested number is **BUG-1**.";
 }
 
@@ -83,14 +83,12 @@ async function handleRandom(env: Env): Promise<string> {
     parsePriorityOrder(env.RANDOM_PRIORITY_ORDER),
     parseExcludedStatuses(env.RANDOM_EXCLUDED_STATUSES)
   );
-  if (!bug) return "🎲 No eligible unfinished bugs were found.";
+  if (!bug) return "🎉 No eligible unfinished bugs were found. Congrats, no work for you!";
   return [
     "🎲 **Your randomly selected bug:**",
     `**BUG-${bug.number} — ${escapeDiscord(bug.title)}**`,
     `Team: ${escapeDiscord(bug.team)} · Priority: ${escapeDiscord(bug.priority)} · Status: ${escapeDiscord(bug.status)}`,
-    linkFor(bug),
-    "",
-    "Selected randomly from the highest-priority tier that currently has unfinished bugs. Good luck 😈"
+    linkFor(bug)
   ].join("\n");
 }
 
@@ -133,7 +131,7 @@ async function handleCreate(interaction: DiscordInteraction, env: Env): Promise<
   }
   const priority = canonicalOption(requestedPriority, priorityProperty.options);
   if (!priority) {
-    return `Priority **${escapeDiscord(requestedPriority)}** does not exist in Notion. Add it to the Priority property, then try again.`;
+    return `Priority **${escapeDiscord(requestedPriority)}** does not exist in Notion. Please select from the drop down and try again.`;
   }
 
   const bugs = await listBugs(env);
@@ -151,7 +149,7 @@ async function handleCreate(interaction: DiscordInteraction, env: Env): Promise<
     escapeDiscord(description.length > 700 ? `${description.slice(0, 697)}...` : description),
     linkFor(bug),
     "",
-    "**Reminder:** Open the Notion page and add any useful details. A Google Drive video link is strongly recommended, but not required. Assignee and due date are optional."
+    "**Reminder:** Open the Notion page and add any useful details. A Google Drive video link is strongly recommended, but not required. Assignee and due date can be assigned later."
   ].join("\n");
 }
 
@@ -165,7 +163,7 @@ async function handleStatus(
     return `Advanced permissions are required to mark bugs **${escapeDiscord(statusName)}**.`;
   }
   const number = optionValue<number>(selectedSubcommand(interaction), "number");
-  if (!Number.isSafeInteger(number) || (number ?? 0) < 1) return "Provide a positive whole-number bug ID.";
+  if (!Number.isSafeInteger(number) || (number ?? 0) < 1) return "Please provide a valid bug number.";
 
   const bugs = await listBugs(env);
   const matches = bugs.filter((bug) => bug.number === number);
@@ -195,7 +193,7 @@ async function handleAssign(interaction: DiscordInteraction, env: Env): Promise<
   const subcommand = selectedSubcommand(interaction);
   const number = optionValue<number>(subcommand, "number");
   const requestedAssignee = optionValue<string>(subcommand, "assignee")?.trim() ?? "";
-  if (!Number.isSafeInteger(number) || (number ?? 0) < 1) return "Provide a positive whole-number bug ID.";
+  if (!Number.isSafeInteger(number) || (number ?? 0) < 1) return "Please provide a valid bug number.";
   if (!requestedAssignee) return "Provide the exact Notion display name of the assignee.";
 
   const propertyName = env.NOTION_ASSIGNEE_PROPERTY ?? "Assignee";
@@ -233,8 +231,8 @@ async function handleDue(interaction: DiscordInteraction, env: Env): Promise<str
   const subcommand = selectedSubcommand(interaction);
   const number = optionValue<number>(subcommand, "number");
   const dueDate = optionValue<string>(subcommand, "date")?.trim() ?? "";
-  if (!Number.isSafeInteger(number) || (number ?? 0) < 1) return "Provide a positive whole-number bug ID.";
-  if (!validIsoDate(dueDate)) return "Provide a real due date in YYYY-MM-DD format, for example 2026-09-30.";
+  if (!Number.isSafeInteger(number) || (number ?? 0) < 1) return "Please provide a valid bug number.";
+  if (!validIsoDate(dueDate)) return "Provide a due date in YYYY-MM-DD format, for example 2026-09-30.";
 
   const propertyName = env.NOTION_DUE_DATE_PROPERTY ?? "Due Date";
   if (await getPropertyType(env, propertyName) !== "date") {
