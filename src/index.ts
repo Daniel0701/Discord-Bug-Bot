@@ -1,4 +1,4 @@
-import { editOriginalResponse, escapeDiscord, hasAdvancedPermissions, optionValue, selectedSubcommand, verifyDiscordRequest } from "./discord";
+import { editOriginalResponse, escapeDiscord, hasAdvancedPermissions, isReportCommand, optionValue, selectedSubcommand, verifyDiscordRequest } from "./discord";
 import {
   createBug,
   getOptionProperty,
@@ -10,6 +10,7 @@ import {
   setBugStatus
 } from "./notion";
 import { parseExcludedStatuses, parsePriorityOrder, pickHighestPriorityBug } from "./random";
+import { buildBugReport } from "./report";
 import { searchBugs } from "./search";
 import type { BugRecord, DiscordInteraction, Env, SearchResult } from "./types";
 
@@ -32,6 +33,53 @@ function canonicalOption(value: string, options: string[]): string | undefined {
 function candidateLine(result: SearchResult): string {
   const percent = Math.round(result.score * 100);
   return `• **BUG-${result.bug.number}** — ${escapeDiscord(result.bug.title)} (${percent}% similar, ${escapeDiscord(result.bug.status)})`;
+}
+
+function validHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function reportBugLine(bug: BugRecord): string {
+  const title = bug.title.length > 90 ? `${bug.title.slice(0, 87)}...` : bug.title;
+  const due = bug.dueDate ? ` · Due: ${escapeDiscord(bug.dueDate.slice(0, 10))}` : " · No due date";
+  return `• **BUG-${bug.number}** — ${escapeDiscord(title)} · ${escapeDiscord(bug.priority)}${due} · ${linkFor(bug)}`;
+}
+
+async function handleReport(interaction: DiscordInteraction, env: Env): Promise<string> {
+  if (!hasAdvancedPermissions(interaction, env)) {
+    return "Advanced permissions are required to view the bug report.";
+  }
+  const bugs = await listBugs(env);
+  const reviewStatus = env.NOTION_REVIEW_STATUS ?? "Ready for Review";
+  const completeStatus = env.NOTION_COMPLETE_STATUS ?? env.NOTION_DONE_STATUS ?? "Completed";
+  const report = buildBugReport(
+    bugs,
+    reviewStatus,
+    env.RANDOM_PRIORITY_ORDER,
+    env.RANDOM_EXCLUDED_STATUSES,
+    completeStatus
+  );
+  const reviewShown = report.review.slice(0, 5);
+  const lines = [
+    "📋 **Bug report**",
+    `**Counts:** Unfinished **${report.openCount}** · Finished **${report.finishedCount}** · Completed **${report.completedCount}** · Ready for Review **${report.review.length}**`,
+    "",
+    `🔎 **Needs review${report.review.length ? ` (${report.review.length})` : ""}**`
+  ];
+  if (reviewShown.length) lines.push(...reviewShown.map(reportBugLine));
+  else lines.push("No bugs are currently waiting for review.");
+  if (report.review.length > reviewShown.length) {
+    lines.push(`_…and ${report.review.length - reviewShown.length} more awaiting review._`);
+  }
+  lines.push("", "🚨 **Top 5 most urgent**");
+  if (report.urgent.length) lines.push(...report.urgent.map(reportBugLine));
+  else lines.push("No eligible unfinished bugs were found.");
+  return lines.join("\n");
 }
 
 async function handleFind(interaction: DiscordInteraction, env: Env): Promise<string> {
@@ -97,19 +145,23 @@ async function handleCreate(interaction: DiscordInteraction, env: Env): Promise<
   const requestedTeam = optionValue<string>(subcommand, "team")?.trim() ?? "";
   const requestedPriority = optionValue<string>(subcommand, "priority")?.trim() ?? "";
   const description = optionValue<string>(subcommand, "description")?.trim() ?? "";
-  if (!requestedTeam || !requestedPriority || !description) {
-    return "Team, priority, and description are all required.";
+  const videoUrl = optionValue<string>(subcommand, "video")?.trim() ?? "";
+  if (!requestedTeam || !requestedPriority || !description || !videoUrl) {
+    return "Team, priority, description, and video link are all required.";
   }
+  if (!validHttpUrl(videoUrl)) return "Please provide a valid http:// or https:// video link.";
 
   const teamName = env.NOTION_TEAM_PROPERTY ?? "Team";
   const priorityName = env.NOTION_PRIORITY_PROPERTY ?? "Priority";
   const scopeName = env.NOTION_SCOPE_PROPERTY ?? "Discipline";
   const scopeValue = env.NOTION_SCOPE_VALUE ?? "QA";
   const expectedScopeType = env.NOTION_SCOPE_TYPE ?? "multi_select";
-  const [teamProperty, priorityProperty, scopeProperty] = await Promise.all([
+  const videoUrlName = env.NOTION_VIDEO_URL_PROPERTY ?? "URL";
+  const [teamProperty, priorityProperty, scopeProperty, videoUrlType] = await Promise.all([
     getOptionProperty(env, teamName),
     getOptionProperty(env, priorityName),
-    getOptionProperty(env, scopeName)
+    getOptionProperty(env, scopeName),
+    getPropertyType(env, videoUrlName)
   ]);
   if (!teamProperty || teamProperty.type !== "multi_select") {
     return `The Notion property **${escapeDiscord(teamName)}** must be a Multi-select property before bugs can be created.`;
@@ -122,6 +174,9 @@ async function handleCreate(interaction: DiscordInteraction, env: Env): Promise<
   }
   if (!canonicalOption(scopeValue, scopeProperty.options)) {
     return `Safety check failed: **${escapeDiscord(scopeValue)}** is not an option in Notion **${escapeDiscord(scopeName)}**. No bug was created.`;
+  }
+  if (videoUrlType !== "url") {
+    return `The Notion property **${escapeDiscord(videoUrlName)}** must be a URL property before bugs can be created.`;
   }
 
   const team = canonicalOption(requestedTeam, teamProperty.options);
@@ -138,7 +193,7 @@ async function handleCreate(interaction: DiscordInteraction, env: Env): Promise<
   const next = latestNumber(bugs) + 1;
   const bug = await createBug(
     env,
-    { number: next, team, priority, description },
+    { number: next, team, priority, description, videoUrl },
     teamProperty.type,
     priorityProperty.type,
     scopeProperty.type
@@ -147,9 +202,10 @@ async function handleCreate(interaction: DiscordInteraction, env: Env): Promise<
     `✅ **Bug #${bug.number} created**`,
     `Team: ${escapeDiscord(team)} · Priority: ${escapeDiscord(priority)}`,
     escapeDiscord(description.length > 700 ? `${description.slice(0, 697)}...` : description),
+    `Video: ${videoUrl}`,
     linkFor(bug),
     "",
-    "**Reminder:** Open the Notion page and add any useful details. A Google Drive video link is strongly recommended, but not required. Assignee and due date can be assigned later."
+    "**Reminder:** Open the Notion page and add any other useful details. Assignee and due date can be assigned later."
   ].join("\n");
 }
 
@@ -250,6 +306,7 @@ async function handleCommand(interaction: DiscordInteraction, env: Env): Promise
   if (subcommand === "find") return handleFind(interaction, env);
   if (subcommand === "next") return handleNext(env);
   if (subcommand === "gamba") return handleRandom(env);
+  if (subcommand === "report") return handleReport(interaction, env);
   if (subcommand === "create") return handleCreate(interaction, env);
   if (subcommand === "review") return handleStatus(interaction, env, env.NOTION_REVIEW_STATUS ?? "Ready for Review", false);
   if (subcommand === "complete") return handleStatus(interaction, env, env.NOTION_COMPLETE_STATUS ?? env.NOTION_DONE_STATUS ?? "Completed", true);
@@ -280,6 +337,43 @@ export default {
     }
     if (interaction.type !== 2) return new Response("Unsupported interaction", { status: 400 });
 
+    const publicReport = isReportCommand(interaction);
+    if (publicReport) {
+      if (!hasAdvancedPermissions(interaction, env)) {
+        return new Response(JSON.stringify({
+          type: 4,
+          data: {
+            content: "Advanced permissions are required to run `/bug report`.",
+            flags: EPHEMERAL,
+            allowed_mentions: { parse: [] }
+          }
+        }), { headers: JSON_HEADERS });
+      }
+
+      const userId = interaction.member?.user?.id ?? interaction.user?.id ?? interaction.id;
+      if (!env.REPORT_RATE_LIMITER) {
+        return new Response(JSON.stringify({
+          type: 4,
+          data: {
+            content: "The report cooldown is not configured. An administrator should check the Worker bindings.",
+            flags: EPHEMERAL,
+            allowed_mentions: { parse: [] }
+          }
+        }), { headers: JSON_HEADERS });
+      }
+      const rateLimit = await env.REPORT_RATE_LIMITER.limit({ key: `report:${userId}` });
+      if (!rateLimit.success) {
+        return new Response(JSON.stringify({
+          type: 4,
+          data: {
+            content: "`/bug report` has a 10-second cooldown. Please try again shortly.",
+            flags: EPHEMERAL,
+            allowed_mentions: { parse: [] }
+          }
+        }), { headers: JSON_HEADERS });
+      }
+    }
+
     context.waitUntil(
       handleCommand(interaction, env)
         .catch((error: unknown) => {
@@ -290,6 +384,9 @@ export default {
         .catch((error: unknown) => console.error(error))
     );
 
-    return new Response(JSON.stringify({ type: 5, data: { flags: EPHEMERAL } }), { headers: JSON_HEADERS });
+    return new Response(JSON.stringify({
+      type: 5,
+      data: publicReport ? {} : { flags: EPHEMERAL }
+    }), { headers: JSON_HEADERS });
   }
 };

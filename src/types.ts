@@ -9,6 +9,7 @@ export interface Env {
   NOTION_TASK_PROPERTY?: string;
   NOTION_TITLE_PROPERTY?: string;
   NOTION_DESCRIPTION_PROPERTY?: string;
+  NOTION_VIDEO_URL_PROPERTY?: string;
   NOTION_TEAM_PROPERTY?: string;
   NOTION_PRIORITY_PROPERTY?: string;
   NOTION_ASSIGNEE_PROPERTY?: string;
@@ -25,6 +26,7 @@ export interface Env {
   SEARCH_CANDIDATE_LIMIT?: string;
   RANDOM_PRIORITY_ORDER?: string;
   RANDOM_EXCLUDED_STATUSES?: string;
+  REPORT_RATE_LIMITER?: RateLimit;
 }
 
 export interface BugRecord {
@@ -36,6 +38,8 @@ export interface BugRecord {
   priority: string;
   status: string;
   url: string;
+  videoUrl?: string;
+  dueDate?: string;
 }
 
 export interface SearchResult {
@@ -54,6 +58,7 @@ export interface CreateBugInput {
   team: string;
   priority: string;
   description: string;
+  videoUrl: string;
 }
 
 export interface NotionUser {

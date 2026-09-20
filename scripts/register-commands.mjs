@@ -38,6 +38,11 @@ const command = {
     },
     {
       type: 1,
+      name: "report",
+      description: "Post a public bug overview (advanced permissions, 10-second cooldown)"
+    },
+    {
+      type: 1,
       name: "create",
       description: "Create a bug in Notion with the required fields",
       options: [
@@ -69,6 +74,14 @@ const command = {
           required: true,
           min_length: 10,
           max_length: 4000
+        },
+        {
+          type: 3,
+          name: "video",
+          description: "Required video link showing the bug (Google Drive, YouTube, etc.)",
+          required: true,
+          min_length: 8,
+          max_length: 2000
         }
       ]
     },

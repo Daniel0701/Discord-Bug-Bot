@@ -107,7 +107,13 @@ describe("QA Masterlist boundary", () => {
 
     await createBug(
       env,
-      { number: 10, team: "Engineering", priority: "High", description: "Test bug" },
+      {
+        number: 10,
+        team: "Engineering",
+        priority: "High",
+        description: "Test bug",
+        videoUrl: "https://drive.google.com/video"
+      },
       "multi_select",
       "select",
       "multi_select"
@@ -116,7 +122,34 @@ describe("QA Masterlist boundary", () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect(JSON.parse(String(init.body))).toMatchObject({
       parent: { data_source_id: "task-sheet" },
-      properties: { Discipline: { multi_select: [{ name: "QA" }] } }
+      properties: {
+        Discipline: { multi_select: [{ name: "QA" }] },
+        URL: { url: "https://drive.google.com/video" }
+      }
     });
+  });
+
+  it("reads video URLs and due dates for reports", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      results: [{
+        id: "page-1",
+        url: "https://notion.so/page-1",
+        properties: {
+          Task: { title: [{ plain_text: "Bug #10" }] },
+          Description: { rich_text: [{ plain_text: "Report bug" }] },
+          URL: { url: "https://drive.google.com/video" },
+          "Due Date": { date: { start: "2026-09-30" } }
+        }
+      }],
+      has_more: false,
+      next_cursor: null
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listBugs(env)).resolves.toMatchObject([{
+      number: 10,
+      videoUrl: "https://drive.google.com/video",
+      dueDate: "2026-09-30"
+    }]);
   });
 });

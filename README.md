@@ -9,7 +9,8 @@ A Discord bot for finding, creating, and managing QA bugs in a Notion task datab
 | `/bug find <description>` | Searches for a similar existing bug | Everyone |
 | `/bug next` | Shows the highest and next bug number | Everyone |
 | `/bug gamba` | Picks from the highest available unfinished priority | Everyone |
-| `/bug create <team> <priority> <description>` | Creates the next numbered bug | Everyone |
+| `/bug report` | Publicly posts bugs awaiting review and the five most urgent open bugs | Advanced permissions |
+| `/bug create <team> <priority> <description> <video>` | Creates the next numbered bug with a required video link | Everyone |
 | `/bug review <number>` | Marks a bug Ready for Review | Everyone |
 | `/bug complete <number>` | Marks a bug Completed | Advanced permissions |
 | `/bug assign <number> <assignee>` | Assigns a bug to a Notion member | Advanced permissions |
@@ -19,6 +20,8 @@ Discord prompts for these fields after a subcommand is selected. Enter only the 
 
 `/bug gamba` checks priorities in this order: Overdue, Critical, High, Medium, then Low. It randomly picks within the first tier that has unfinished bugs, so any Overdue bug always takes precedence over Critical and lower priorities.
 
+`/bug report` is the only command with a channel-visible response. It requires advanced permissions and has a 10-second cooldown per user; permission and cooldown errors remain private. The report shows counts for unfinished, finished, completed, and ready-for-review bugs. Finished is the combined completed and ready-for-review count. It then lists up to five bugs in `Ready for Review` and ranks the five most urgent unfinished bugs by priority, earliest due date, and bug number. Review and completed/cancelled statuses are excluded from the urgent-work list.
+
 ## Notion Setup
 
 The data source must contain these properties:
@@ -27,6 +30,7 @@ The data source must contain these properties:
 |---|---|
 | `Task` | Title |
 | `Description` | Rich text |
+| `URL` | URL (required video recording) |
 | `Discipline` | Multi-select with a `QA` option |
 | `Team` | Multi-select |
 | `Priority` | Select |

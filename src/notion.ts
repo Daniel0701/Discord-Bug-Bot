@@ -72,6 +72,12 @@ function propertyText(property: NotionProperty | undefined): string {
   return "";
 }
 
+function propertyDate(property: NotionProperty | undefined): string {
+  if (!property?.date || typeof property.date !== "object") return "";
+  const start = (property.date as Record<string, unknown>).start;
+  return typeof start === "string" ? start : "";
+}
+
 export function propertyNumber(property: NotionProperty | undefined): number | null {
   if (!property) return null;
   if (typeof property.number === "number") return property.number;
@@ -95,6 +101,8 @@ function toBug(page: NotionPage, env: Env): BugRecord | null {
   const teamName = env.NOTION_TEAM_PROPERTY ?? "Team";
   const priorityName = env.NOTION_PRIORITY_PROPERTY ?? "Priority";
   const statusName = env.NOTION_STATUS_PROPERTY ?? "Status";
+  const videoUrlName = env.NOTION_VIDEO_URL_PROPERTY ?? "URL";
+  const dueDateName = env.NOTION_DUE_DATE_PROPERTY ?? "Due Date";
   const number = propertyNumber(properties[numberName]);
   if (number === null || !Number.isSafeInteger(number) || number < 1) return null;
   const description = propertyText(properties[descriptionName]);
@@ -114,7 +122,9 @@ function toBug(page: NotionPage, env: Env): BugRecord | null {
     team: propertyText(properties[teamName]) || "Unspecified",
     priority: propertyText(properties[priorityName]) || "Unspecified",
     status,
-    url: page.url ?? ""
+    url: page.url ?? "",
+    videoUrl: propertyText(properties[videoUrlName]),
+    dueDate: propertyDate(properties[dueDateName])
   };
 }
 
@@ -196,6 +206,7 @@ export async function createBug(
   const teamName = env.NOTION_TEAM_PROPERTY ?? "Team";
   const priorityName = env.NOTION_PRIORITY_PROPERTY ?? "Priority";
   const descriptionName = env.NOTION_DESCRIPTION_PROPERTY ?? "Description";
+  const videoUrlName = env.NOTION_VIDEO_URL_PROPERTY ?? "URL";
   const scopeName = env.NOTION_SCOPE_PROPERTY ?? "Discipline";
   const scopeValue = env.NOTION_SCOPE_VALUE ?? "QA";
   const taskTitle = `Bug #${input.number}`;
@@ -208,7 +219,8 @@ export async function createBug(
         [teamName]: optionValue(teamType, input.team),
         [priorityName]: optionValue(priorityType, input.priority),
         [scopeName]: optionValue(scopeType, scopeValue),
-        [descriptionName]: { rich_text: richTextValue(input.description) }
+        [descriptionName]: { rich_text: richTextValue(input.description) },
+        [videoUrlName]: { url: input.videoUrl }
       }
     })
   });
@@ -220,7 +232,8 @@ export async function createBug(
     team: input.team,
     priority: input.priority,
     status: "New",
-    url: page.url ?? ""
+    url: page.url ?? "",
+    videoUrl: input.videoUrl
   };
 }
 

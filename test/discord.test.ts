@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasAdvancedPermissions } from "../src/discord";
+import { hasAdvancedPermissions, isReportCommand } from "../src/discord";
 import type { DiscordInteraction, Env } from "../src/types";
 
 const env: Env = {
@@ -32,5 +32,17 @@ describe("advanced permission authorization", () => {
 
   it("rejects users outside the advanced-permissions allowlist", () => {
     expect(hasAdvancedPermissions(interaction("member", ["unrelated-role"]), env)).toBe(false);
+  });
+});
+
+describe("public report detection", () => {
+  it("only treats /bug report as public", () => {
+    const report = interaction("advanced-user", []);
+    report.data = { name: "bug", options: [{ name: "report", type: 1 }] };
+    const create = interaction("advanced-user", []);
+    create.data = { name: "bug", options: [{ name: "create", type: 1 }] };
+
+    expect(isReportCommand(report)).toBe(true);
+    expect(isReportCommand(create)).toBe(false);
   });
 });

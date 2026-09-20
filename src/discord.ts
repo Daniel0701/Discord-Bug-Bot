@@ -34,6 +34,10 @@ export function selectedSubcommand(interaction: DiscordInteraction): DiscordOpti
   return interaction.data?.options?.find((option) => option.type === 1);
 }
 
+export function isReportCommand(interaction: DiscordInteraction): boolean {
+  return interaction.data?.name === "bug" && selectedSubcommand(interaction)?.name === "report";
+}
+
 export function optionValue<T extends string | number | boolean>(
   subcommand: DiscordOption | undefined,
   name: string

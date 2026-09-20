@@ -3,11 +3,22 @@
   "name": "discord-notion-bug-bot",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-17",
+  "ratelimits": [
+    {
+      "name": "REPORT_RATE_LIMITER",
+      "namespace_id": "729104",
+      "simple": {
+        "limit": 1,
+        "period": 10
+      }
+    }
+  ],
   "vars": {
     "NOTION_BUG_NUMBER_PROPERTY": "Task",
     "NOTION_TASK_PROPERTY": "Task",
     "NOTION_TITLE_PROPERTY": "Task",
     "NOTION_DESCRIPTION_PROPERTY": "Description",
+    "NOTION_VIDEO_URL_PROPERTY": "URL",
     "NOTION_TEAM_PROPERTY": "Team",
     "NOTION_PRIORITY_PROPERTY": "Priority",
     "NOTION_ASSIGNEE_PROPERTY": "Assignee",
