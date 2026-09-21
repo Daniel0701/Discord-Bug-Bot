@@ -58,7 +58,9 @@ export function hasAdvancedPermissions(interaction: DiscordInteraction, env: Env
 
 export async function editOriginalResponse(
   interaction: DiscordInteraction,
-  content: string
+  content: string,
+  allowedUserIds: string[] = [],
+  allowedRoleIds: string[] = []
 ): Promise<void> {
   const safeContent = content.length <= 2000 ? content : `${content.slice(0, 1997)}...`;
   const response = await fetch(
@@ -66,10 +68,76 @@ export async function editOriginalResponse(
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: safeContent, allowed_mentions: { parse: [] } })
+      body: JSON.stringify({
+        content: safeContent,
+        allowed_mentions: {
+          parse: [],
+          users: allowedUserIds,
+          roles: allowedRoleIds,
+          replied_user: false
+        }
+      })
     }
   );
   if (!response.ok) throw new Error(`Discord follow-up failed (${response.status}): ${(await response.text()).slice(0, 300)}`);
+}
+
+export async function sendChannelMessage(
+  env: Env,
+  channelId: string,
+  content: string,
+  allowedUserIds: string[] = [],
+  allowedRoleIds: string[] = []
+): Promise<{ id: string }> {
+  if (!env.DISCORD_BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is not configured");
+  const response = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      content: content.length <= 2000 ? content : `${content.slice(0, 1997)}...`,
+      allowed_mentions: {
+        parse: [],
+        users: allowedUserIds,
+        roles: allowedRoleIds,
+        replied_user: false
+      }
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Discord message failed (${response.status}): ${(await response.text()).slice(0, 300)}`);
+  }
+  return response.json<{ id: string }>();
+}
+
+export async function listChannelAuthorIdsSince(
+  env: Env,
+  channelId: string,
+  since: Date
+): Promise<Set<string>> {
+  if (!env.DISCORD_BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is not configured");
+  const discordEpoch = 1420070400000n;
+  const after = ((BigInt(since.getTime()) - discordEpoch) << 22n).toString();
+  const authors = new Set<string>();
+  let cursor = after;
+  for (let page = 0; page < 10; page += 1) {
+    const response = await fetch(
+      `https://discord.com/api/v10/channels/${channelId}/messages?limit=100&after=${cursor}`,
+      { headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}` } }
+    );
+    if (!response.ok) {
+      throw new Error(`Discord history failed (${response.status}): ${(await response.text()).slice(0, 300)}`);
+    }
+    const messages = await response.json<Array<{ id: string; author?: { id?: string; bot?: boolean } }>>();
+    for (const message of messages) {
+      if (message.author?.id && !message.author.bot) authors.add(message.author.id);
+    }
+    if (messages.length < 100) break;
+    cursor = messages.reduce((latest, message) => BigInt(message.id) > BigInt(latest) ? message.id : latest, cursor);
+  }
+  return authors;
 }
 
 export function escapeDiscord(text: string): string {

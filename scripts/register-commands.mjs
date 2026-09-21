@@ -6,7 +6,7 @@ for (const name of required) {
   }
 }
 
-const command = {
+const bugCommand = {
   name: "bug",
   description: "Search and manage the Notion bug tracker",
   type: 1,
@@ -160,20 +160,40 @@ const command = {
   ]
 };
 
+const prodCommand = {
+  name: "prod",
+  description: "Send production update and milestone reminders",
+  type: 1,
+  options: [
+    {
+      type: 1,
+      name: "update",
+      description: "Post the weekly status-update reminder"
+    },
+    {
+      type: 1,
+      name: "milestone",
+      description: "Post incomplete AGP 26–27 milestones due this week"
+    }
+  ]
+};
+
 const url = `https://discord.com/api/v10/applications/${process.env.DISCORD_APPLICATION_ID}/guilds/${process.env.DISCORD_GUILD_ID}/commands`;
-const response = await fetch(url, {
-  method: "POST",
-  headers: {
-    Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify(command)
-});
+for (const command of [bugCommand, prodCommand]) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(command)
+  });
 
-if (!response.ok) {
-  console.error(`Command registration failed (${response.status}): ${await response.text()}`);
-  process.exit(1);
+  if (!response.ok) {
+    console.error(`/${command.name} registration failed (${response.status}): ${await response.text()}`);
+    process.exit(1);
+  }
+
+  const registered = await response.json();
+  console.log(`Registered /${command.name} for guild ${process.env.DISCORD_GUILD_ID} as command ${registered.id}.`);
 }
-
-const registered = await response.json();
-console.log(`Registered /bug for guild ${process.env.DISCORD_GUILD_ID} as command ${registered.id}.`);

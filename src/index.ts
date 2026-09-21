@@ -12,10 +12,15 @@ import {
 import { parseExcludedStatuses, parsePriorityOrder, pickHighestPriorityBug } from "./random";
 import { buildBugReport } from "./report";
 import { searchBugs } from "./search";
+import { postMilestoneReminder, runProductionSchedule, weeklyUpdateInitialReminder } from "./production";
 import type { BugRecord, DiscordInteraction, Env, SearchResult } from "./types";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const EPHEMERAL = 64;
+
+function isProductionUpdateCommand(interaction: DiscordInteraction): boolean {
+  return interaction.data?.name === "prod" && selectedSubcommand(interaction)?.name === "update";
+}
 
 function latestNumber(bugs: BugRecord[]): number {
   return bugs.reduce((max, bug) => Math.max(max, bug.number), 0);
@@ -301,6 +306,15 @@ async function handleDue(interaction: DiscordInteraction, env: Env): Promise<str
 }
 
 async function handleCommand(interaction: DiscordInteraction, env: Env): Promise<string> {
+  if (interaction.data?.name === "prod") {
+    if (!hasAdvancedPermissions(interaction, env)) return "Advanced permissions are required to run production reminders.";
+    const subcommand = selectedSubcommand(interaction);
+    if (subcommand?.name === "update") {
+      return weeklyUpdateInitialReminder(env).content;
+    }
+    if (subcommand?.name === "milestone") return postMilestoneReminder(env);
+    return "Unknown production subcommand.";
+  }
   if (interaction.data?.name !== "bug") return "Unknown command.";
   const subcommand = selectedSubcommand(interaction)?.name;
   if (subcommand === "find") return handleFind(interaction, env);
@@ -316,6 +330,13 @@ async function handleCommand(interaction: DiscordInteraction, env: Env): Promise
 }
 
 export default {
+  async scheduled(controller: ScheduledController, env: Env, context: ExecutionContext): Promise<void> {
+    context.waitUntil(
+      runProductionSchedule(env, new Date(controller.scheduledTime))
+        .then((results) => results.forEach((result) => console.log(result)))
+        .catch((error: unknown) => console.error(error))
+    );
+  },
   async fetch(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
     if (request.method === "GET") return new Response("Discord Notion bug bot is running.");
     if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -338,6 +359,18 @@ export default {
     if (interaction.type !== 2) return new Response("Unsupported interaction", { status: 400 });
 
     const publicReport = isReportCommand(interaction);
+    const requestedProductionUpdate = isProductionUpdateCommand(interaction);
+    if (requestedProductionUpdate && !hasAdvancedPermissions(interaction, env)) {
+      return new Response(JSON.stringify({
+        type: 4,
+        data: {
+          content: "Advanced permissions are required to run `/prod update`.",
+          flags: EPHEMERAL,
+          allowed_mentions: { parse: [] }
+        }
+      }), { headers: JSON_HEADERS });
+    }
+    const publicProductionUpdate = requestedProductionUpdate;
     if (publicReport) {
       if (!hasAdvancedPermissions(interaction, env)) {
         return new Response(JSON.stringify({
@@ -378,15 +411,21 @@ export default {
       handleCommand(interaction, env)
         .catch((error: unknown) => {
           console.error(error);
-          return "The command failed while communicating with Notion. An administrator should check the Worker logs and integration permissions.";
+          return "The command failed while communicating with Discord or Notion. An administrator should check the Worker logs and integration permissions.";
         })
-        .then((message) => editOriginalResponse(interaction, message))
+        .then((message) => {
+          if (publicProductionUpdate) {
+            const reminder = weeklyUpdateInitialReminder(env);
+            return editOriginalResponse(interaction, message, reminder.allowedUserIds, reminder.allowedRoleIds);
+          }
+          return editOriginalResponse(interaction, message);
+        })
         .catch((error: unknown) => console.error(error))
     );
 
     return new Response(JSON.stringify({
       type: 5,
-      data: publicReport ? {} : { flags: EPHEMERAL }
+      data: publicReport || publicProductionUpdate ? {} : { flags: EPHEMERAL }
     }), { headers: JSON_HEADERS });
   }
 };

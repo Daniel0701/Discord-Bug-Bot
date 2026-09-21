@@ -3,6 +3,9 @@
   "name": "discord-notion-bug-bot",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-17",
+  "triggers": {
+    "crons": ["0 * * * *", "5 * * * *"]
+  },
   "ratelimits": [
     {
       "name": "REPORT_RATE_LIMITER",
@@ -33,6 +36,36 @@
     "SEARCH_MATCH_THRESHOLD": "0.56",
     "SEARCH_CANDIDATE_LIMIT": "3",
     "RANDOM_EXCLUDED_STATUSES": "Completed,Ready for Review,Cutting Room Floor,Done,Cancelled,Canceled,Duplicate,Won't fix,Wont fix",
-    "RANDOM_PRIORITY_ORDER": "Overdue,Critical,High,Medium,Low"
+    "RANDOM_PRIORITY_ORDER": "Overdue,Critical,High,Medium,Low",
+    "PROD_TIME_ZONE": "America/Los_Angeles",
+    "PROD_CHANNEL_ID": "1541881800912273510",
+    "WEEKLY_UPDATE_CHANNEL_ID": "1541881800912273510",
+    "MILESTONE_CHANNEL_ID": "1449874011654983793",
+    "WEEKLY_UPDATE_ROLE_ID": "1443054001749889199",
+    // Ana, Daniel, Farrah, Kelly, Max, Allison, Ray, Rosa, Yutong
+    "WEEKLY_UPDATE_USER_IDS": "395430896603496468,718548175362981988,731258758788808865,489614340731961345,357611728152035329,691033906358648852,354013631035473920,524441071388721164,1012224692641353778",
+    "PROD_UPDATE_WEEKDAY": "1",
+    "PROD_UPDATE_HOUR": "9",
+    "PROD_UPDATE_MINUTE": "0",
+    "PROD_UPDATE_FOLLOWUP_WEEKDAY": "1",
+    "PROD_UPDATE_FOLLOWUP_HOUR": "20",
+    "PROD_UPDATE_FOLLOWUP_MINUTE": "0",
+    "PROD_MILESTONE_WEEKDAY": "1",
+    "PROD_MILESTONE_HOUR": "9",
+    "PROD_MILESTONE_MINUTE": "5",
+    "PROD_MILESTONE_AUTOMATIC": "true",
+    "AGP_NOTION_DATABASE_ID": "b620cfbb01854e8993c4996616430c1c",
+    "AGP_NOTION_PAGE_URL": "https://app.notion.com/p/b620cfbb01854e8993c4996616430c1c?v=3dab027bfdab805d8abf000c56300286",
+    "AGP_DELIVERABLES_FOLDER_URL": "https://drive.google.com/drive/folders/16nHkMP0h33OCKCE6OAIbMsj3lU1RAuWd",
+    "AGP_TITLE_PROPERTY": "Milestone",
+    "AGP_DUE_DATE_PROPERTY": "Milestone Due Date",
+    "AGP_STATUS_PROPERTY": "Status",
+    "AGP_DISCIPLINE_PROPERTY": "Discipline",
+    "AGP_EXCLUDED_DISCIPLINES": "Faculty Reviews",
+    "AGP_VALID_PROPERTY": "Valid",
+    "AGP_OWNER_PROPERTY": "Assignee",
+    "AGP_OWNER_DISCORD_PROPERTY": "Discord User ID",
+    "AGP_DISCORD_USER_MAP": "{\"Ana\":\"395430896603496468\",\"Daniel\":\"718548175362981988\",\"Farrah\":\"731258758788808865\",\"Kelly\":\"489614340731961345\",\"Max\":\"357611728152035329\",\"Allison\":\"691033906358648852\",\"Ray\":\"354013631035473920\",\"Rosa\":\"524441071388721164\",\"Yutong\":\"1012224692641353778\",\"Ramsey\":\"593182696046329879\",\"Haowei\":\"1010814746183868479\",\"Azam\":\"746510900483325962\"}",
+    "AGP_COMPLETE_STATUSES": "Completed,Done,Cancelled,Canceled"
   }
 }
