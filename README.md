@@ -1,6 +1,6 @@
 # Discord → Notion Bug Bot
 
-A Discord bot for finding, creating, and managing QA bugs in a Notion task database. It runs as a Cloudflare Worker and replies privately to Discord slash commands. It also doubles as a production bot as well, able to automatically send reminders.
+A Discord bot for finding, creating, and managing QA bugs in a Notion task database. It runs as a Cloudflare Worker and handles Discord slash commands. It also doubles as a production bot as well, able to automatically send reminders.
 
 ## Commands
 
@@ -15,8 +15,8 @@ A Discord bot for finding, creating, and managing QA bugs in a Notion task datab
 | `/bug complete <number>` | Marks a bug Completed | Advanced permissions |
 | `/bug assign <number> <assignee>` | Assigns a bug to a Notion member | Advanced permissions |
 | `/bug due <number> <YYYY-MM-DD>` | Sets a bug's due date | Advanced permissions |
-| `/prod update` | Posts the weekly status-update reminder | Advanced permissions |
-| `/prod milestone` | Posts incomplete AGP 26–27 milestones due this week | Advanced permissions |
+| `/prod update` | Posts the weekly reminder | Advanced permissions |
+| `/prod milestone` | Posts a separate reminder for upcoming milestones | Advanced permissions |
 
 Discord prompts for these fields after a subcommand is selected. Enter only the numeric part of a bug ID in `number` (for example, `12` for `Bug #12`). `assignee` must exactly match the person's Notion display name, and `date` must use `YYYY-MM-DD`.
 
@@ -65,7 +65,7 @@ ADVANCED_PERMS_ROLE_IDS
 ADVANCED_PERMS_USER_IDS (optional)
 ```
 
-Set the deployed Worker URL as the Discord **Interactions Endpoint URL**. Install the application with the `applications.commands` scope, then register `/bug` in a test server:
+Set the deployed Worker URL as the Discord **Interactions Endpoint URL**. Install the application with the `applications.commands` scope, then register the slash commands in a test server:
 
 ```powershell
 $env:DISCORD_APPLICATION_ID="your-application-id"
@@ -91,7 +91,7 @@ Run `npm run register` again only when slash-command names or options change.
 
 ## Production reminders
 
-The Worker checks its production schedule hourly and evaluates it in `PROD_TIME_ZONE` (Pacific time by default). Every Monday it posts the initial weekly status-update reminder at 9:00 AM. At 8:00 PM it checks the dedicated update channel and mentions only configured leads who have not posted since the 9:00 AM reminder. A dedicated update channel is recommended because receipt means that the lead posted at least one non-bot message there during that window.
+The Worker checks its production schedule hourly and evaluates it in `PROD_TIME_ZONE` (Pacific time by default). Every Monday it posts the initial weekly reminder at 9:00 AM. At 8:00 PM it checks the dedicated update channel and mentions only configured members who have not posted since the 9:00 AM reminder. A dedicated update channel is recommended because receipt means that the member posted at least one non-bot message there during that window.
 
 The initial reminder can also be sent manually with `/prod update`. The milestone reminder runs once on Monday at 9:05 AM Pacific and lists incomplete deliverables due on the upcoming Thursday whose `Valid` checkbox is checked, excluding rows whose `Discipline` is `Faculty Reviews`. Assigned deliverables appear first and unassigned deliverables last. It can also be sent manually with `/prod milestone` and has no follow-up reminder. Manual commands require the same advanced-permissions allowlist as privileged bug commands.
 
@@ -99,9 +99,22 @@ Add these Worker secrets:
 
 ```text
 DISCORD_BOT_TOKEN
-AGP_DISCORD_USER_MAP (optional when the database has a Discord User ID property)
 ```
 
-Configure `WEEKLY_UPDATE_CHANNEL_ID`, `MILESTONE_CHANNEL_ID`, `WEEKLY_UPDATE_USER_IDS`, and either `AGP_NOTION_DATABASE_ID` or `AGP_NOTION_DATA_SOURCE_ID`. `PROD_CHANNEL_ID` remains a fallback when a job-specific channel is omitted. When only the visible database ID is configured, the Worker retrieves its sole queryable data source automatically. The milestone data source defaults to `Name`, `Due Date`, `Status`, `Owner`, and `Discord User ID` properties; their names can be overridden with the corresponding `AGP_*_PROPERTY` variables. Owners can be mapped to Discord IDs either through a comma-separated `Discord User ID` property on each milestone or with a JSON object in `AGP_DISCORD_USER_MAP`, keyed by Notion user ID, exact display name, or first name.
+Configure `WEEKLY_UPDATE_CHANNEL_ID`, `MILESTONE_CHANNEL_ID`, and `WEEKLY_UPDATE_USER_IDS`. `PROD_CHANNEL_ID` remains a fallback when a job-specific channel is omitted. The milestone reminder also needs a Notion database or data-source ID and property-name mappings in `wrangler.jsonc`.
+
+The milestone Notion data source needs these properties:
+
+| Purpose | Required type |
+|---|---|
+| Milestone name | Title |
+| Due date | Date |
+| Status | Status |
+| Valid milestone | Checkbox |
+| Discipline | Select or multi-select |
+| Assignee | People |
+| Discord user ID | Text, optional |
+
+The reminder selects valid, incomplete milestones due on the upcoming Thursday and excludes configured disciplines. It formats each row as an assignee mention followed by the milestone name. Assignees can be mapped to Discord IDs by Notion user ID, exact display name, or first name. Assigned milestones appear first and unassigned milestones appear last.
 
 The Discord bot needs View Channel, Send Messages, and Read Message History permissions in the configured channels. Cron triggers execute in UTC, so the Worker runs hourly and applies the configured IANA timezone itself to remain correct across daylight-saving changes.
